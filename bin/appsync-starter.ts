@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import * as cdk from '@aws-cdk/core';
+import { App } from '@aws-cdk/core';
 import { AppsyncStarterStack } from '../stacks/appsync-starter-stack';
 
-const app = new cdk.App();
+const app = new App();
 new AppsyncStarterStack(app, 'AppsyncStarterStack');
