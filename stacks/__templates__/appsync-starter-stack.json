@@ -1,0 +1,260 @@
+{
+  "Resources": {
+    "AppSyncStarterApi": {
+      "Type": "AWS::AppSync::GraphQLApi",
+      "Properties": {
+        "AuthenticationType": "API_KEY",
+        "Name": "AppSyncStarterApi",
+        "XrayEnabled": true
+      }
+    },
+    "AppSyncStarterApiKey": {
+      "Type": "AWS::AppSync::ApiKey",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "Description": "Default Api Key for AppSync authorisation",
+        "Expires": 123456789
+      }
+    },
+    "Schema": {
+      "Type": "AWS::AppSync::GraphQLSchema",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "Definition": "\n        type Hello {\n          say: String!\n        }\n        type Query {\n          none: Hello!\n          lambda: Hello!\n        }\n        type Schema {\n          query: Query\n        }"
+      }
+    },
+    "NoneDataSource": {
+      "Type": "AWS::AppSync::DataSource",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "Name": "NoneDataSource",
+        "Type": "NONE"
+      }
+    },
+    "NoneQueryResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "FieldName": "none",
+        "TypeName": "Query",
+        "DataSourceName": {
+          "Fn::GetAtt": [
+            "NoneDataSource",
+            "Name"
+          ]
+        },
+        "RequestMappingTemplate": "{\n        \"version\" : \"2018-05-29\",\n        \"payload\": {\n          \"greeting\": \"Hello world!\"\n        }\n      }",
+        "ResponseMappingTemplate": "{\n        \"say\": \"$ctx.result.greeting\"\n      }"
+      },
+      "DependsOn": [
+        "Schema"
+      ]
+    },
+    "LambdaAccessRole886C5C97": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "appsync.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/AWSLambdaFullAccess"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "CustomHandlerResolverServiceRole810019F2": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "CustomHandlerResolver26CB7B29": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7S3BucketFF95E96E"
+          },
+          "S3Key": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7S3VersionKey51845A14"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Fn::Select": [
+                    1,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7S3VersionKey51845A14"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            ]
+          }
+        },
+        "Handler": "hello.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "CustomHandlerResolverServiceRole810019F2",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs12.x",
+        "Environment": {
+          "Variables": {
+            "NODE_ENV": "test"
+          }
+        }
+      },
+      "DependsOn": [
+        "CustomHandlerResolverServiceRole810019F2"
+      ]
+    },
+    "LambdaDataSource": {
+      "Type": "AWS::AppSync::DataSource",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "Name": "LambdaDataSource",
+        "Type": "AWS_LAMBDA",
+        "LambdaConfig": {
+          "LambdaFunctionArn": {
+            "Fn::GetAtt": [
+              "CustomHandlerResolver26CB7B29",
+              "Arn"
+            ]
+          }
+        },
+        "ServiceRoleArn": {
+          "Fn::GetAtt": [
+            "LambdaAccessRole886C5C97",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "LambdaQueryResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": {
+          "Fn::GetAtt": [
+            "AppSyncStarterApi",
+            "ApiId"
+          ]
+        },
+        "FieldName": "lambda",
+        "TypeName": "Query",
+        "DataSourceName": {
+          "Fn::GetAtt": [
+            "LambdaDataSource",
+            "Name"
+          ]
+        },
+        "RequestMappingTemplate": "{\n        \"version\" : \"2018-05-29\",\n        \"operation\": \"Invoke\",\n        \"payload\": {\n          \"attributes\": $util.toJson($context.args),\n          \"headers\": $util.toJson($context.request.headers)\n        }\n      }",
+        "ResponseMappingTemplate": "$util.toJson($context.result)"
+      },
+      "DependsOn": [
+        "Schema"
+      ]
+    }
+  },
+  "Parameters": {
+    "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7S3BucketFF95E96E": {
+      "Type": "String",
+      "Description": "S3 bucket for asset \"d146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7\""
+    },
+    "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7S3VersionKey51845A14": {
+      "Type": "String",
+      "Description": "S3 key for asset version \"d146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7\""
+    },
+    "AssetParametersd146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7ArtifactHashEF0B6AB6": {
+      "Type": "String",
+      "Description": "Artifact hash for asset \"d146752cbf01037cae65d373d5c5277e2b41410cbaec794307da824d24f109c7\""
+    }
+  }
+}
